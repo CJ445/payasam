@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchStatus, fetchImpact, fetchRemediation, injectFault, recoverSystem, generateTraffic } from './api.js'
 import { appendEvent, buildEvent } from './activityLog.js'
 import { appendHistoryPoint } from './impactHistory.js'
+import CostDashboard from './CostDashboard.jsx'
 
 // The standard local OpenObserve address this whole project assumes
 // (see SETUP.md/DEMO.md) -- these link to real, verified page paths
@@ -314,6 +315,11 @@ function RemediationPanel({ remediation }) {
 }
 
 export default function App() {
+  // Local view toggle, deliberately not a router: this is the only
+  // other "page" the app has, so a single state flag is simpler than a
+  // routing dependency this otherwise-two-dependency project doesn't
+  // need.
+  const [view, setView] = useState('main')
   const [status, setStatus] = useState(null)
   const [impact, setImpact] = useState(null)
   const [remediation, setRemediation] = useState(null)
@@ -428,6 +434,10 @@ export default function App() {
     }
   }
 
+  if (view === 'cost') {
+    return <CostDashboard onBack={() => setView('main')} />
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -435,6 +445,7 @@ export default function App() {
         <div className="header-right">
           {status && <StatusPill status={status.overall_status} />}
           {lastUpdated && <span className="muted small">updated {lastUpdated.toLocaleTimeString()}</span>}
+          <button className="button-secondary" onClick={() => setView('cost')}>💲 Cost Intelligence</button>
         </div>
       </header>
 

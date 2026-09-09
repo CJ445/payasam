@@ -129,6 +129,52 @@ def get_replicas(deployment_name: str) -> int:
     return dep.spec.replicas
 
 
+def get_resource_requests(deployment_name: str) -> dict[str, float | None]:
+    """CPU (cores) and memory (GiB) requests on the Deployment's single
+    container, for cost.py's modeled-cost calculation. Returns None for
+    a resource with no request set on the container spec -- never
+    fabricates a value, since an unset request is a real fact about the
+    deployment, not missing data to guess at.
+
+    Kubernetes CPU quantities are strings like "250m" (millicores) or
+    "1" (whole cores); memory quantities are strings like "512Mi" or
+    "1Gi". Parsed here rather than via a generic quantity library, since
+    this project's own Deployment manifests only use these two suffix
+    families (see infrastructure/kubernetes/*.yaml).
+    """
+    apps = _apps_api()
+    dep = apps.read_namespaced_deployment(deployment_name, NAMESPACE)
+    container = _get_container(dep)
+    requests = (container.resources and container.resources.requests) or {}
+
+    cpu_raw = requests.get("cpu")
+    cpu_cores = _parse_cpu_to_cores(cpu_raw) if cpu_raw else None
+
+    mem_raw = requests.get("memory")
+    mem_gib = _parse_memory_to_gib(mem_raw) if mem_raw else None
+
+    return {"cpu_cores": cpu_cores, "memory_gib": mem_gib}
+
+
+def _parse_cpu_to_cores(value: str) -> float:
+    if value.endswith("m"):
+        return float(value[:-1]) / 1000
+    return float(value)
+
+
+def _parse_memory_to_gib(value: str) -> float:
+    # Binary (Ki/Mi/Gi) and decimal (K/M/G) suffixes -- only the ones
+    # actually used across this project's manifests.
+    units = {
+        "Ki": 1 / (1024 * 1024), "Mi": 1 / 1024, "Gi": 1,
+        "K": 1e3 / (1024 ** 3), "M": 1e6 / (1024 ** 3), "G": 1e9 / (1024 ** 3),
+    }
+    for suffix, factor in units.items():
+        if value.endswith(suffix):
+            return float(value[: -len(suffix)]) * factor
+    return float(value) / (1024 ** 3)  # bare bytes
+
+
 def inject(scenario: str) -> None:
     if scenario == UNAVAILABLE_SCENARIO:
         scale("payment-service", 0)

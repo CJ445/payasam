@@ -30,6 +30,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
 import faults_control as fc
+import cost
 from impact import FAILURE_EVENT_TYPES, compute_impact, distinct_affected_users, load_business_metadata
 
 SERVICE_NAME = "payasam-backend"
@@ -306,6 +307,59 @@ async def impact(window_minutes: int = 5, business_function: str = "order"):
         "affected_users": affected_users,
         "affected_users_note": affected_users_note,
         **calc,
+    }
+
+
+# Healthy-state replica count per service, i.e. what each Deployment
+# runs at when no fault is active -- this project's manifests all run a
+# single replica normally, and the only scenario that changes replica
+# count today is payment_unavailable (scales payment-service to 0; see
+# faults_control.recover()). Kept as a static map rather than derived,
+# since "what's normal" isn't itself observable from a single live read.
+BASELINE_REPLICAS = {svc: 1 for svc in APP_SERVICES}
+
+
+@app.get("/cost")
+def cost_estimate():
+    """Modeled GCP cost, live replica counts and container resource
+    requests x a static public GCP Autopilot price snapshot (see
+    cost.py's module docstring) -- never a real bill, always labeled as
+    such by the caller. A service is omitted from `services` (and noted
+    in `errors`) if its Deployment can't be read or has no resource
+    requests set, rather than guessing a number for it."""
+    services = []
+    errors = []
+    for svc in APP_SERVICES:
+        try:
+            replicas = fc.get_replicas(svc)
+            requests = fc.get_resource_requests(svc)
+        except Exception as exc:
+            logger.error("cost: failed to read %s: %s", svc, exc)
+            errors.append({"service": svc, "note": "could not read live Kubernetes state"})
+            continue
+
+        if requests["cpu_cores"] is None or requests["memory_gib"] is None:
+            errors.append({"service": svc, "note": "no CPU/memory request set on this Deployment's container"})
+            continue
+
+        service_cost = cost.compute_service_cost(replicas, requests["cpu_cores"], requests["memory_gib"])
+        opportunity = cost.optimization_opportunity(
+            replicas, BASELINE_REPLICAS[svc], requests["cpu_cores"], requests["memory_gib"],
+        )
+        services.append({"service": svc, **service_cost, "optimization_opportunity": opportunity})
+
+    total = cost.cluster_total(services)
+    cluster_opportunity_hourly = sum(s["optimization_opportunity"]["delta_hourly_usd"] for s in services)
+
+    return {
+        "pricing_snapshot": cost.PRICING_SNAPSHOT,
+        "services": services,
+        "errors": errors,
+        "cluster_total": total,
+        "optimization_opportunity": {
+            "delta_hourly_usd": round(cluster_opportunity_hourly, 6),
+            "delta_monthly_usd": round(cluster_opportunity_hourly * cost.HOURS_PER_MONTH, 2),
+        },
     }
 
 
