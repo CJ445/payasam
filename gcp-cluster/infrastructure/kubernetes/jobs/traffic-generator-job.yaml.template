@@ -1,0 +1,44 @@
+# Template for one-shot traffic-generator experiment runs. Not part of
+# kustomization.yaml (Jobs are one-shot, not persistent application
+# state) -- rendered by scripts/run-baseline.sh with a unique name per
+# run via envsubst, applied, waited on, logs collected, then deleted.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ${JOB_NAME}
+  namespace: payasam
+  labels:
+    app: traffic-generator
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app: traffic-generator
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: traffic-generator
+          image: payasam/traffic-generator:phase2
+          imagePullPolicy: Never
+          args:
+            - "--gateway-url"
+            - "http://api-gateway:8000"
+            - "--users"
+            - "${USERS}"
+            - "--requests-per-user"
+            - "${REQUESTS_PER_USER}"
+            - "--interval"
+            - "${INTERVAL}"
+            - "--jitter"
+            - "${JITTER}"
+            - "--seed"
+            - "${SEED}"
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"

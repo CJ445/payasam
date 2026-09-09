@@ -1,0 +1,20 @@
+# Business-impact assumptions (PRD Sec 18-19). These are explicit
+# simulation inputs, not real financial/accounting data. Every number
+# main.py's /impact endpoint returns is either directly observed
+# (failed_transactions, failure timestamps) or a deterministic function
+# of that observation plus one of these assumptions -- never a
+# hardcoded headline number (PRD Sec 45).
+
+order:
+  business_function: Ordering
+  criticality: 5
+  avg_transaction_value_inr: 500
+  transactions_per_minute: 8
+  downtime_cost_per_minute_inr: 800
+
+payment:
+  business_function: Payments
+  criticality: 5
+  avg_transaction_value_inr: 500
+  transactions_per_minute: 10
+  downtime_cost_per_minute_inr: 1000

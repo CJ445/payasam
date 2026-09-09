@@ -1,0 +1,38 @@
+# Grants payasam-backend exactly enough permission to drive the same
+# fault-injection mechanism scripts/set-fault.sh / clear-faults.sh
+# already use (DECISIONS.md D007) -- get/patch on Deployments and
+# Deployments/scale, scoped to the payasam namespace only. No cluster-wide
+# access, no access to Secrets/ConfigMaps/Pods beyond what the
+# openobserve-credentials Secret's envFrom already provides separately.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: payasam-backend
+  namespace: payasam
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: payasam-backend-fault-control
+  namespace: payasam
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale"]
+    verbs: ["get", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: payasam-backend-fault-control
+  namespace: payasam
+subjects:
+  - kind: ServiceAccount
+    name: payasam-backend
+    namespace: payasam
+roleRef:
+  kind: Role
+  name: payasam-backend-fault-control
+  apiGroup: rbac.authorization.k8s.io

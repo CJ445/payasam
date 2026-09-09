@@ -1,0 +1,53 @@
+Example end-to-end distributed trace, captured live from OpenObserve
+(queried via the traces stream), Phase 3 verification session.
+
+Order: user_id=user-otel-verify, product-001 x1
+order_id=order-3e18f2ee-ffc6-4ee5-b009-570299c0c2e0
+transaction_id=txn-f037ea53-5157-43c7-8f20-27aae62ad97c
+trace_id=367792f7202663cdfe9f119b0e0fdc79
+37 spans total, single trace_id across all 5 services.
+
+service                      operation                      duration_us  span      parent
+payasam-api-gateway          POST /orders                   86946        364b11d7  (root)
+payasam-api-gateway          POST /orders http receive      167          ca1571a3  364b11d7
+payasam-api-gateway          POST (httpx client -> order-service)  77133 2a0b252e  364b11d7
+payasam-order-service        POST /orders                   73908        81fd92be  2a0b252e
+payasam-order-service        POST /orders http receive      423          619b4729  81fd92be
+payasam-order-service        POST (httpx client -> inventory-service) 29988 91c733e1 81fd92be
+payasam-inventory-service    POST /reserve                  25323        a6f628a3  91c733e1
+payasam-inventory-service    POST /reserve http receive     412          5432837e  a6f628a3
+payasam-inventory-service    POST (httpx client -> database) 11046       2f5e9450  a6f628a3
+payasam-database             POST /inventory/reserve        8134         2ff51f0f  2f5e9450
+payasam-database             POST /inventory/reserve http receive 307   cfceee0a  2ff51f0f
+payasam-database             db.reserve_inventory (manual span) 6159    0383b9af  2ff51f0f
+payasam-database             POST /inventory/reserve http send(x2) 82,545 a25a8db5,89c0e347 2ff51f0f
+payasam-inventory-service    POST /reserve http send (x2)   79,481       048f9d52,2b382188 a6f628a3
+payasam-order-service        POST (httpx client -> payment-service) 18651 825672f3 81fd92be
+payasam-payment-service      POST /payments                 15197        1e4a5db6  825672f3
+payasam-payment-service      POST /payments http receive    409          1b210510  1e4a5db6
+payasam-payment-service      POST (httpx client -> database) 8902        67d4772e  1e4a5db6
+payasam-database             POST /payments                 7141         aa190e39  67d4772e
+payasam-database             POST /payments http receive    285          7d62712f  aa190e39
+payasam-database             db.create_payment (manual span) 5223        568e252b  aa190e39
+payasam-database             POST /payments http send (x2)  78,557       4876a9b2,49d56928 aa190e39
+payasam-payment-service      POST /payments http send (x2)  50,317       b31c97c0,ad5aac29 1e4a5db6
+payasam-order-service        POST (httpx client -> database, persist order) 10276 6f59730d 81fd92be
+payasam-database             POST /orders                   7602         702d52b5  6f59730d
+payasam-database             POST /orders http receive      243          3d4548fb  702d52b5
+payasam-database             db.create_order (manual span)  5999         141f30d2  702d52b5
+payasam-database             POST /orders http send (x2)    75,476       167a85f1,bce28a52 702d52b5
+payasam-order-service        POST /orders http send (x2)    82,541       32b4e531,b9a6995b 81fd92be
+payasam-api-gateway          POST /orders http send (x2)    114,677      3eb77778,c78c8fe3 364b11d7
+
+Correlated structured logs (same trace_id, from the "default" logs stream):
+- payasam-order-service: "order received" (span 81fd92be)
+- payasam-inventory-service: "inventory reserved" (span a6f628a3)
+- payasam-database: "inventory reserved" (span 2ff51f0f)
+- payasam-payment-service: "payment processed" (span 1e4a5db6)
+- payasam-database: "payment persisted" (span aa190e39)
+- payasam-database: "order persisted" (span 702d52b5)
+- payasam-order-service: "order completed" (span 81fd92be)
+
+Total request duration (root span): 86.946 ms
+Largest single downstream contributor (from order-service's perspective):
+  inventory reservation call ~30.0ms > payment call ~18.7ms > order-persist call ~10.3ms

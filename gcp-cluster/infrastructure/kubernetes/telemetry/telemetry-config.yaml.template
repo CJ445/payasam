@@ -1,0 +1,17 @@
+# Template for the non-secret OTLP configuration. Rendered by
+# scripts/configure-telemetry.sh, which resolves the kind bridge gateway
+# IP dynamically (per Phase 0 / DECISIONS.md D011) -- this file is never
+# applied as-is; the placeholder is never committed with a real value.
+#
+# Regenerate whenever the kind cluster is recreated (the gateway IP is
+# not guaranteed stable across recreation) by re-running
+# scripts/configure-telemetry.sh.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telemetry-config
+  namespace: payasam
+data:
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://${GATEWAY_IP}:5080/api/${OPENOBSERVE_ORG}"
+  DEPLOYMENT_ENVIRONMENT: "local"
+  SERVICE_VERSION: "phase3"

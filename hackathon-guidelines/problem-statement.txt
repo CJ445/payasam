@@ -1,0 +1,81 @@
+Hackathon Framework
+
+Student Task
+• Analyse the current process and identify inefficiencies.
+• Propose a solution approach (AI/automation/process redesign).
+• Define the data, tools, and methods required.
+• Suggest KPIs/metrics to evaluate success.
+• Highlight risks, adoption challenges, and change management needs. • Reflect on future improvements and key learnings.
+Instructions
+• Read the chosen use case carefully and understand the problem statement.
+• Use the questionnaire provided as a guide to structure your response.
+• Your analysis should cover:
+• Problem understanding
+• Data & inputs
+• Solution design
+• Implementation & expected outcomes
+• Risks & mitigation strategies
+• Reflection & improvements
+• Present your findings in a structured format:
+• Report (4–6 pages) OR Presentation (8–10 slides).
+• You may use diagrams, flowcharts, or mock-ups if needed.
+• Ensure your solution is practical, innovative, and tied to Google Cloud Platform.
+
+Expected Outcome
+By the end of this task, each student/team should deliver:
+• A clear articulation of the problem in the chosen use case.
+• A proposed solution that leverages AI/automation/process improvement.
+• Identification of data, systems, and stakeholders involved.
+• A set of KPIs/metrics to measure success.
+• Consideration of risks, compliance, and adoption challenges. • A structured, professional deliverable (report or slides) that demonstrates critical thinking, problem-
+solving, and creativity.
+
+
+Evaluation Criteria - Guideline: Post Build stage
+
+1. Use case and process-flow understanding
+2. Proposed architecture and the alternatives considered
+3. Breadth of sample data
+4. Architecture considerations
+5. Performance
+6. User experience
+7. Integration options for the solution
+8. Reusability
+9. Ease of implementation
+10. Real-time decision capability
+11. Monitoring approach
+12. Presentation quality
+13. Participation in mentor connects
+
+Presence of the following in expected best solution:
+
+1. Architecture – clear diagram, clean code
+
+2. User Interface – a working, demoable screen
+
+3. Documentation/Video - a short walkthrough of your approach
+
+4. Roadmap – what's built now vs. what's next
+
+5. Presentation – problem, demo, impact and limits
+
+
+Our problem statement: 
+
+Objective:
+A cloud-based log monitoring and visualization solution that gathers and analyzes application logs to help development
+teams track system performance, error patterns, and overall health.A dashboard that tracks cloud resource usage and
+suggests cost-saving actions. It focuses on efficiency and optimization.
+
+Implementation Steps:
+ 
+1. Capture application logs
+2. Send logs to cloud service
+3. Visualise logs in dashboard
+4. Set alert thresholds.
+
+Features:
+1. Centralised logging
+2. Real-time log viewing
+3. Error alerts
+

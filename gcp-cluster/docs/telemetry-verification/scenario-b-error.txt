@@ -1,0 +1,40 @@
+Scenario B — Service Error (payment-service, PAYASAM_FAULT_PAYMENT_ERROR_RATE=1.0)
+Example trace_id=c0baaa51122ef539496236167ea313cb, captured during the fault window.
+
+Key spans (service | operation | duration_ms | span_status):
+payasam-api-gateway        POST /orders (root)           241.59  ERROR
+payasam-order-service      POST /orders                  171.43  ERROR
+payasam-inventory-service  POST /reserve                  34.43  UNSET  <- entirely healthy
+payasam-database           db.reserve_inventory            13.88  UNSET  <- entirely healthy
+payasam-order-service      POST (client call to payment)    4.88  ERROR
+payasam-payment-service    POST /payments (LEAF)            1.89  ERROR  <- fails fast, no children, root cause
+payasam-order-service      POST (client call, release)     80.88  UNSET  <- compensating rollback, itself succeeds
+payasam-inventory-service  POST /release                   25.57  UNSET
+payasam-database           db.release_inventory              6.26  UNSET
+payasam-order-service      POST (persist failed order)     12.40  UNSET
+
+Root-cause localization (from span status + topology + duration shape,
+not from knowing the fault target in advance):
+- payment-service's "POST /payments" span is the only span in the whole
+  trace that is BOTH marked ERROR AND has no further child spans
+  explaining its (tiny, 1.89ms) duration -- a "fails fast, dead end"
+  signature distinct from Scenario A's "slow, no error" signature.
+- Every inventory-service/database span under the initial reservation
+  stays UNSET (healthy) -- objective evidence inventory is not involved.
+- order-service's and api-gateway's spans inherit ERROR purely from
+  propagation (FastAPI/httpx instrumentation auto-marks spans ERROR on
+  5xx, per OTel semantic conventions -- confirmed working without any
+  manual code for those two services). Their elevated *duration* here is
+  compensating work they correctly perform in response to the failure
+  (releasing the reservation, persisting a "failed" order record) --
+  each individual compensating call is itself UNSET/healthy, so this is
+  correctly read as "order-service doing real recovery work triggered by
+  payment-service's failure," not "order-service is also broken."
+
+Ground truth check: inventory correctly and fully released after the
+run (product-001/002/003 back to 10/5/20 -- Phase 1's D012 compensating
+rollback logic, confirmed still working under this new failure path).
+
+Baseline (3 users x 5 req, faults disabled): success 15/15, avg=202.9ms (post-Scenario-A recovery baseline)
+Faulted (3 users x 5 req, PAYASAM_FAULT_PAYMENT_ERROR_RATE=1.0): success 0/15, all 502, avg=283.8ms
+100% deterministic failure, as configured (rate=1.0). No false successes; no silent data loss (all reservations released, all orders recorded as "failed").

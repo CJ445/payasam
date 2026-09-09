@@ -1,0 +1,33 @@
+{
+  "total_requests": 15,
+  "success_count": 15,
+  "success_rate": 1.0,
+  "insufficient_inventory_count": 0,
+  "client_rejected_count": 0,
+  "server_error_count": 0,
+  "timeout_count": 0,
+  "infra_error_rate": 0.0,
+  "status_distribution": {
+    "201": 15
+  },
+  "latency_ms": {
+    "avg": 229.433197331673,
+    "p50": 158.0037280000397,
+    "p95": 544.5694489972084,
+    "p99": 556.0614530040766,
+    "max": 556.0614530040766,
+    "min": 84.41939899785211
+  },
+  "wall_clock_seconds": 3.4619800229993416,
+  "requests_per_second": 4.332780634304328,
+  "config": {
+    "gateway_url": "http://api-gateway:8000",
+    "concurrent_users": 3,
+    "requests_per_user": 5,
+    "interval_seconds": 0.5,
+    "interval_jitter_seconds": 0.1,
+    "request_timeout_seconds": 10.0,
+    "seed": 42,
+    "duration_cap_seconds": null
+  }
+}

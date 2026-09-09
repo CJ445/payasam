@@ -1,0 +1,31 @@
+Scenario D — Service Unavailable (payment-service scaled to 0 replicas,
+Kubernetes-native mechanism, no code change)
+
+Example trace_id=f8177d8c42503bdb490871b7e9a630a2, captured during the
+unavailability window.
+
+Key spans:
+payasam-api-gateway        POST /orders (root)              509.78ms  ERROR
+payasam-order-service      POST /orders                      494.26ms  ERROR
+payasam-inventory-service  POST /reserve                     284.41ms  UNSET  <- entirely healthy
+payasam-order-service      POST (client call to payment)       4.82ms  ERROR  status_message="ConnectError: All connection attempts fa[iled]"
+  --> NO payasam-payment-service span exists anywhere in this trace.
+payasam-inventory-service  POST /release                      30.00ms  UNSET  <- compensating rollback, healthy
+payasam-database           POST /orders (persist failed)      42.04ms  UNSET  <- healthy
+
+Root-cause localization -- and how this signature differs from Scenario B:
+- Scenario B (error, service present): a payasam-payment-service span
+  EXISTS, is fast (~2ms), and is marked ERROR -- the service is up and
+  actively rejecting.
+- Scenario D (unavailable): NO payasam-payment-service span exists at
+  all. The failure is visible entirely from order-service's own client
+  span, whose status_message literally states "ConnectError: All
+  connection attempts fa[iled]" -- unambiguous, ground-truth-independent
+  evidence that the dependency is unreachable, not merely erroring.
+- Both scenarios correctly leave inventory-service/database spans UNSET
+  for the reservation and release/compensation work, isolating the
+  problem to the payment dependency specifically in both cases.
+
+Baseline (3 users x 5 req, faults disabled): success 15/15, avg~200-230ms range (established across Scenarios A-C recovery checks)
+Faulted (payment-service replicas=0): success 0/15, all 502, avg=1077.7ms (high variance: min=9.6ms max=5152ms -- consistent with connection-attempt/DNS-retry timing varying per request rather than a fixed processing cost)
+Compensating rollback (D012) confirmed still correct: inventory fully released, "failed" order persisted for every rejected transaction.

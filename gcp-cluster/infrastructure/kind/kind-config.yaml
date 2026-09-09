@@ -1,0 +1,11 @@
+# Minimal kind cluster configuration for Payasam (Phase 0).
+#
+# Single control-plane node only — no worker nodes. Sufficient for a
+# handful of lightweight FastAPI pods plus supporting resources under the
+# memory budget documented in IMPLEMENTATION_PLAN.md §1.5. Add worker
+# nodes later only if a concrete, measured need arises (PRD §43).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: payasam
+nodes:
+  - role: control-plane

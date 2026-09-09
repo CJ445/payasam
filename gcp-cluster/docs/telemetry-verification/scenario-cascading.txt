@@ -1,0 +1,24 @@
+Optional Scenario — Cascading Failure (payment latency fault reused at
+higher concurrency: PAYASAM_FAULT_PAYMENT_LATENCY_MS=500, 5 users)
+
+ONE root fault (payment-service +500ms), multiple downstream symptoms:
+- payment-service POST /payments span:  avg 586.2ms (base 500ms fault +
+  ~86ms scheduling overhead under 5-way concurrency)
+- api-gateway POST /orders (root span): avg 799.8ms
+- generator-observed client latency:    avg 805.4ms (close agreement)
+
+Contrast with Scenario C's database-lock amplification: this fault
+(an async sleep in payment-service, no shared lock) shows only mild
+concurrency amplification (500ms -> 586ms, +17%), because
+asyncio.sleep() doesn't block other concurrent request coroutines the
+way the SQLite global lock does. Scenario C's fault amplified far more
+severely (200ms -> 500-700ms lock_wait, +150-250%) because it holds a
+shared, serializing resource. This is itself a useful, evidence-based
+distinction: not all faults cascade/amplify under load the same way --
+whether a fault holds a shared bottleneck resource determines how much
+concurrency makes it worse.
+
+No timeouts occurred (10s client timeout, nowhere near approached);
+success rate remained 100% -- this fault produces pure latency
+propagation, not failures, consistent with Scenario A's individual
+result.

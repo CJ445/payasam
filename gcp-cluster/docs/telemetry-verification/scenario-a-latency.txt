@@ -1,0 +1,28 @@
+Scenario A — Service Latency (payment-service +500ms)
+Example trace_id=a92a291e22b0256e42c3cc265ce679cb, captured during the fault window.
+
+service                   operation            duration_ms  self_time_ms (duration - sum(children))
+payasam-api-gateway       POST /orders (root)     638.95      7.64
+payasam-order-service     POST /orders            629.12     12.79
+payasam-inventory-service POST /reserve            69.95      (propagated normally, unaffected)
+payasam-payment-service   POST /payments          526.93    512.94   <-- 40x higher self-time than any other span
+payasam-database          POST /payments            9.31      1.58
+payasam-database          db.create_payment         6.55      n/a (leaf span)
+
+Root-cause localization (from topology + self-time alone, not from
+knowing the fault was injected into payment-service):
+- payment-service's span is NOT explained by its own children: its only
+  downstream call (to database, 13.01ms) accounts for ~2.6% of its total
+  duration. The remaining ~513ms of "self time" -- time with no further
+  child span to attribute it to -- sits entirely inside payment-service.
+- order-service's and api-gateway's spans ARE almost fully explained by
+  their children (self-time 12.79ms / 7.64ms respectively) -- their
+  elevated total duration is a propagated symptom, not an independent
+  contribution.
+- Conclusion supported by evidence: payment-service is the root cause;
+  order-service and api-gateway are downstream symptoms.
+
+Baseline (3 users x 5 req, faults disabled): avg=229.4ms p50=158.0ms p95=544.6ms p99=556.1ms, 15/15 success
+Faulted   (3 users x 5 req, PAYASAM_FAULT_PAYMENT_LATENCY_MS=500): avg=717.3ms p50=659.3ms p95=1007.5ms p99=1015.7ms, 15/15 success
+Delta in p50: +501.3ms (injected fault: 500ms) -- extremely close match.
+Success rate unaffected (15/15 both runs) -- pure latency injection, no failures, as designed.

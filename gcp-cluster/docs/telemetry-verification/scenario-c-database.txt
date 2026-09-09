@@ -1,0 +1,41 @@
+Scenario C — Database Latency (PAYASAM_FAULT_DB_LATENCY_MS=200, applied
+inside the held lock in db.py's _traced_op)
+
+Purpose: distinguish "database operation delay" from "SQLite lock
+waiting" -- not merely re-assert Phase 3's lock-contention finding.
+
+--- 1 concurrent user (no contention) ---
+Generator-observed: avg=794.1ms p50=807.6ms (3 fault-affected db calls/txn x ~200ms + baseline overhead)
+Per-operation trace data:
+  db.reserve_inventory   n=5  avg_dur_ms=209.29  avg_lock_wait_ms=0.00
+  db.create_payment      n=5  avg_dur_ms=208.94  avg_lock_wait_ms=0.00
+  db.create_order        n=5  avg_dur_ms=209.04  avg_lock_wait_ms=0.00
+-> Cleanly isolated: with no contention, 100% of the extra time is
+   "database operation delay" (the operation itself is slow); lock_wait
+   is exactly zero. This is the "application/DB-operation-level delay"
+   signature.
+
+--- 5 concurrent users (contention induced) ---
+Generator-observed: avg=2720.7ms p50=2611.6ms
+Per-operation trace data:
+  db.reserve_inventory   n=25 avg_dur_ms=714.54  avg_lock_wait_ms=505.86 (70.8%)
+  db.create_payment      n=25 avg_dur_ms=881.51  avg_lock_wait_ms=672.64 (76.3%)
+  db.create_order        n=25 avg_dur_ms=902.54  avg_lock_wait_ms=694.23 (76.9%)
+-> Under concurrency, lock_wait_ms *exceeds* the ~200ms base delay
+   itself (505-694ms average) -- because every lock-holder now occupies
+   the lock ~20-40x longer than its normal ~5-10ms, so the queue behind
+   it grows much worse than linearly. This is the "SQLite lock waiting"
+   signature, distinct from and larger than the base "database operation
+   delay" it was triggered by.
+
+Conclusion: the fault's *direct* cost (measured at 1 user, zero
+contention) is the ~200ms operation delay. Its *amplified* cost under
+realistic concurrent load (measured at 5 users) is dominated by lock
+contention it induces in OTHER concurrent requests, which telemetry
+shows growing to 2.5-3.5x the base delay itself. Both numbers are
+directly measured, not asserted.
+
+Database safety: no data corruption, no permanent lock, no crash --
+SQLite's own timeout=5 connection setting was never approached (lock
+held only for the configured 200ms fault window, well under any risk of
+a wedge), and the fault is fully reversible via env var removal.
